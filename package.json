@@ -14,9 +14,9 @@
     "lib/gaussian-vrm.bundled.js"
   ],
   "peerDependencies": {
-    "three": "^0.170.0",
     "@pixiv/three-vrm": ">=2.1.0",
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.1",
+    "three": "^0.170.0"
   },
   "repository": {
     "type": "git",
@@ -40,10 +40,16 @@
   "author": "naruya",
   "license": "MIT",
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "esbuild": "^0.24.0"
+    "@vitest/coverage-v8": "^4.1.7",
+    "esbuild": "^0.24.0",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.7"
   },
   "publishConfig": {
     "access": "public"
