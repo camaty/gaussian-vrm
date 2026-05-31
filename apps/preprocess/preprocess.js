@@ -86,8 +86,14 @@ async function assignSplatsToPoints(character, gs, capsules, capsuleBoneIndex, f
   const skinnedMesh = character.currentVrm.scene.children[character.skinnedMeshIndex];
   gs.splatVertexIndices = [];
 
-  const position = skinnedMesh.geometry.getAttribute('position');
+  const _position = skinnedMesh.geometry.getAttribute('position');
   const boneVertexIndices = {};
+
+  // P-3: cache skinned vertices once to avoid recomputing applyBoneTransform in
+  // the per-splat nearest-vertex pass and the relativePoses pass.
+  const skinnedLocalCache = new Float32Array(_position.count * 3);  // model space (pre scene.matrixWorld)
+  const skinnedWorldCache = new Float32Array(_position.count * 3);  // world space
+  const _sv = new THREE.Vector3();
 
   Object.values(capsuleBoneIndex).forEach(value => {
     boneVertexIndices[value] = [];
@@ -95,10 +101,17 @@ async function assignSplatsToPoints(character, gs, capsules, capsuleBoneIndex, f
 
   // ``vrm mesh の'' 各頂点がどのboneに一番近いかを確認 (not splats)
   // splatBoneIndices に含まれる bone の頂点だけ使う
-  for (let i = 0; i < position.count; i++) {
-    const vertex = new THREE.Vector3().fromBufferAttribute(position, i);
-    const skinnedVertex = skinnedMesh.applyBoneTransform(i, vertex);
-    skinnedVertex.applyMatrix4(character.currentVrm.scene.matrixWorld);
+  for (let i = 0; i < _position.count; i++) {
+    _sv.fromBufferAttribute(_position, i);
+    skinnedMesh.applyBoneTransform(i, _sv);
+    skinnedLocalCache[i * 3 + 0] = _sv.x;
+    skinnedLocalCache[i * 3 + 1] = _sv.y;
+    skinnedLocalCache[i * 3 + 2] = _sv.z;
+    _sv.applyMatrix4(character.currentVrm.scene.matrixWorld);
+    skinnedWorldCache[i * 3 + 0] = _sv.x;
+    skinnedWorldCache[i * 3 + 1] = _sv.y;
+    skinnedWorldCache[i * 3 + 2] = _sv.z;
+    const skinnedVertex = _sv;
 
     let minDistance = Infinity;
     let bestCi = undefined;
@@ -139,7 +152,7 @@ async function assignSplatsToPoints(character, gs, capsules, capsuleBoneIndex, f
     boneVertexIndices[capsuleBoneIndex[bestCi]].push(i);
 
     if (i % 100 == 0) {
-      let progress = (i / position.count) * 100;
+      let progress = (i / _position.count) * 100;
       document.getElementById('loaddisplay').innerHTML = progress.toFixed(1) + '% (2/3)';
       gs.splatMesh.updateDataTexturesFromBaseData(0, gs.splatCount - 1);
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -167,9 +180,11 @@ async function assignSplatsToPoints(character, gs, capsules, capsuleBoneIndex, f
     let skip = fast ? 3 : 1;
     for (let vi = 0; vi < vertexIndices.length; vi += skip) {  // CHANGED
       const vertexIndex = vertexIndices[vi];
-      const vertex = new THREE.Vector3().fromBufferAttribute(position, vertexIndex);
-      const skinnedVertex = skinnedMesh.applyBoneTransform(vertexIndex, vertex);
-      skinnedVertex.applyMatrix4(character.currentVrm.scene.matrixWorld);
+      const skinnedVertex = _sv.set(
+        skinnedWorldCache[vertexIndex * 3 + 0],
+        skinnedWorldCache[vertexIndex * 3 + 1],
+        skinnedWorldCache[vertexIndex * 3 + 2]
+      );
 
       let distance = skinnedVertex.distanceTo(targetPoint);
 
@@ -201,8 +216,11 @@ async function assignSplatsToPoints(character, gs, capsules, capsuleBoneIndex, f
   gs.splatRelativePoses = [];
   for (let i = 0; i < gs.splatCount; i++) {
     const vertexIndex = gs.splatVertexIndices[i];
-    let vertex = new THREE.Vector3().fromBufferAttribute(position, vertexIndex);
-    vertex = skinnedMesh.applyBoneTransform(vertexIndex, vertex);
+    const vertex = _sv.set(
+      skinnedLocalCache[vertexIndex * 3 + 0],
+      skinnedLocalCache[vertexIndex * 3 + 1],
+      skinnedLocalCache[vertexIndex * 3 + 2]
+    );
 
     let center0 = new THREE.Vector3(gs.centers0[i * 3 + 0], gs.centers0[i * 3 + 1], gs.centers0[i * 3 + 2]);
     center0.applyMatrix4(gs.viewer.splatMesh.scenes[0].matrixWorld);

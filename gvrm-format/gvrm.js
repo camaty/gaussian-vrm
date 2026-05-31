@@ -10,6 +10,18 @@ import { PLYParser } from './ply.js';
 import JSZip from 'jszip'
 
 
+// Cleanup thresholds for far-from-bone splat removal (R-3).
+// Bone indices are VRM-skeleton specific (sotai.vrm); distances in meters.
+const CLEANUP_THRESHOLDS = {
+  headBoneIndex: 57,
+  leftFootBoneIndex: 21,
+  rightFootBoneIndex: 19,
+  defaultDist: 0.2,
+  footDist: 0.1,
+  headDist: 0.3,
+};
+
+
 export class GVRM extends THREE.Group {
   constructor(character, gs) {
     super();
@@ -153,13 +165,13 @@ export class GVRM extends THREE.Group {
         gvrm.gs.splatRelativePoses[i * 3 + 1] ** 2 +
         gvrm.gs.splatRelativePoses[i * 3 + 2] ** 2
       );
-      if (gvrm.gs.splatBoneIndices[i] !== 57 && distance > 0.2) {  // exclude head
+      if (gvrm.gs.splatBoneIndices[i] !== CLEANUP_THRESHOLDS.headBoneIndex && distance > CLEANUP_THRESHOLDS.defaultDist) {  // exclude head
         gvrm.gs.colors[i * 4 + 3] = 0;
-      } else if (gvrm.gs.splatBoneIndices[i] == 21 && distance > 0.1) {  // left foot
+      } else if (gvrm.gs.splatBoneIndices[i] == CLEANUP_THRESHOLDS.leftFootBoneIndex && distance > CLEANUP_THRESHOLDS.footDist) {  // left foot
         gvrm.gs.colors[i * 4 + 3] = 0;
-      } else if (gvrm.gs.splatBoneIndices[i] == 19 && distance > 0.1) {  // right foot
+      } else if (gvrm.gs.splatBoneIndices[i] == CLEANUP_THRESHOLDS.rightFootBoneIndex && distance > CLEANUP_THRESHOLDS.footDist) {  // right foot
         gvrm.gs.colors[i * 4 + 3] = 0;
-      } else if (gvrm.gs.splatBoneIndices[i] === 57 && distance > 0.3) {  // head
+      } else if (gvrm.gs.splatBoneIndices[i] === CLEANUP_THRESHOLDS.headBoneIndex && distance > CLEANUP_THRESHOLDS.headDist) {  // head
         gvrm.gs.colors[i * 4 + 3] = 0;
       }
     }
@@ -271,17 +283,12 @@ export class GVRM extends THREE.Group {
   async load(url, scene, camera, renderer, fileName=null) {
     const _gvrm = await GVRM.load(url, scene, camera, renderer, fileName);
 
-    // TODO: refactor
-    this.character = _gvrm.character;
-    // this.character.animationUrl = animationUrl;
-    // this.character.currentMixer = currentMixer;
-    this.gs = _gvrm.gs;
-    this.modelScale = _gvrm.modelScale;
-    this.boneOperations = _gvrm.boneOperations;
-    this.boneSceneMap = _gvrm.boneSceneMap;
-    this.fileName = _gvrm.fileName;
-    this.vrmWorldPosition0 = _gvrm.vrmWorldPosition0;
-    this.vrmWorldQuaternion0 = _gvrm.vrmWorldQuaternion0;
+    const copyFields = [
+      'character', 'gs', 'modelScale', 'boneOperations',
+      'boneSceneMap', 'fileName',
+      'vrmWorldPosition0', 'vrmWorldQuaternion0',
+    ];
+    for (const key of copyFields) this[key] = _gvrm[key];
     this.isReady = true;
   }
 
@@ -310,6 +317,8 @@ export class GVRM extends THREE.Group {
     const tempMidPoint = new THREE.Vector3();
     const tempMat = new THREE.Matrix4();
     const tempQuat = new THREE.Quaternion();
+    const _invMat0 = new THREE.Matrix4();
+    const _relMat = new THREE.Matrix4();
     const gsViewerMatrixWorldInverse = new THREE.Matrix4();
     const gsViewerWorldQuat = new THREE.Quaternion();
     const gsViewerWorldQuatInverse = new THREE.Quaternion();
@@ -344,7 +353,9 @@ export class GVRM extends THREE.Group {
         tempMidPoint.applyMatrix4(gsViewerMatrixWorldInverse);
 
         // Rotation: bone's rotation change in GS viewer's local coords
-        tempMat.extractRotation(childBone.matrixWorld.multiply(childBone.matrixWorld0.clone().invert()));
+        _invMat0.copy(childBone.matrixWorld0).invert();
+        _relMat.multiplyMatrices(childBone.matrixWorld, _invMat0);
+        tempMat.extractRotation(_relMat);
         tempQuat.setFromRotationMatrix(tempMat);
         tempQuat.premultiply(gsViewerWorldQuatInverse);
         tempQuat.multiply(this.gs.quaternion0);
