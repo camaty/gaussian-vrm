@@ -21,6 +21,14 @@ const CLEANUP_THRESHOLDS = {
   headDist: 0.3,
 };
 
+// R-9: Bones excluded from position/quaternion updates in updateByBones().
+// Derived from BONE_CONFIG (torso/headTop/head) to avoid duplication and per-frame allocation.
+const NO_SORT_BONE_NAMES = new Set([
+  ...GVRMUtils.BONE_CONFIG.torso.names,
+  ...GVRMUtils.BONE_CONFIG.headTop.names,
+  ...GVRMUtils.BONE_CONFIG.head.names,
+]);
+
 
 export class GVRM extends THREE.Group {
   constructor(character, gs) {
@@ -322,10 +330,6 @@ export class GVRM extends THREE.Group {
     const gsViewerMatrixWorldInverse = new THREE.Matrix4();
     const gsViewerWorldQuat = new THREE.Quaternion();
     const gsViewerWorldQuatInverse = new THREE.Quaternion();
-    const noSortBoneList = [
-      "J_Bip_C_Neck", "J_Bip_C_Spine", "J_Bip_C_Chest", "J_Bip_C_UpperChest", "J_Bip_C_HeadTop_End", "J_Bip_C_Head"
-    ];
-
     const skeleton = this.character.currentVrm.scene.children[2].skeleton;
 
     // Get GS viewer's world transform for coordinate conversion
@@ -362,7 +366,7 @@ export class GVRM extends THREE.Group {
 
         const scene = this.gs.viewer.getSplatScene(sceneIndex);
         if (scene) {
-          if (!noSortBoneList.includes(childBone.name)) {
+          if (!NO_SORT_BONE_NAMES.has(childBone.name)) {
             scene.position.copy(tempMidPoint);
             scene.quaternion.copy(tempQuat);
           }
@@ -646,10 +650,6 @@ export class GVRM extends THREE.Group {
         #include <defaultnormal_vertex>  // ?
         #include <skinning_vertex>
 
-        // vec3 splatCenter = ( vec4(transformed, 1.0) ).xyz;
-        // vec3 splatCenter = ( meshMatrixWorld * vec4(transformed, 1.0) ).xyz;
-        // vec3 splatCenter = ( meshMatrixWorld * vec4(transformed + relativePos, 1.0) ).xyz;  // GOOD
-
         vec3 skinnedRelativePos = vec4( skinMatrix * inverse(skinMatrix0) * vec4( relativePos, 0.0 ) ).xyz;
         vec3 splatCenter = ( meshMatrixWorld * vec4(transformed + skinnedRelativePos, 1.0) ).xyz;
         `
@@ -668,11 +668,6 @@ export class GVRM extends THREE.Group {
       shader.vertexShader = shader.vertexShader.replace(
         'mat3 cov2Dm = transpose(T) * Vrk * T;',
         `
-        // for debug
-        // Vrk[0][0] *= 25.0; Vrk[1][1] *= 0.1; Vrk[2][2] *= 0.1;
-        // Vrk[1][1] *= 25.0; Vrk[0][0] *= 0.1; Vrk[2][2] *= 0.1;
-        // Vrk[2][2] *= 25.0; Vrk[0][0] *= 0.1; Vrk[1][1] *= 0.1;
-
         // via quat
         mat3 gsRotation0 = mat3(gsMatrix0);
         mat3 skinRotationMatrix = mat3(skinMatrix * inverse(skinMatrix0));
@@ -682,13 +677,6 @@ export class GVRM extends THREE.Group {
         relativeRotation = mat3FromQuat(tempQuat);
         mat3 rotatedVrk = transpose(relativeRotation) * Vrk * relativeRotation;
         mat3 cov2Dm = transpose(T) * rotatedVrk * T;
-
-        // TODO: via mat
-        // mat3 gsRotation0 = mat3(gsMatrix0);
-        // mat3 skinRotationMatrix = mat3(skinMatrix * inverse(skinMatrix0));
-        // mat3 relativeRotation = transpose(gsRotation0) * skinRotationMatrix * gsRotation0;
-        // mat3 rotatedVrk = transpose(relativeRotation) * Vrk * relativeRotation;
-        // mat3 cov2Dm = transpose(T) * rotatedVrk * T;
         `
       );
     };

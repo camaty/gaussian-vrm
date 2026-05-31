@@ -30,9 +30,9 @@ const assignPointsFn =
     /async function assignSplatsToPoints[\s\S]*?(?=\nasync function )/
   )?.[0] ?? "";
 
-// 末尾の updateByBones 〜 次メソッド境界までを抽出
+// updateByBones メソッド定義本体を抽出（コメント行を除く）
 const updateByBonesFn =
-  gvrmSrc.match(/updateByBones\s*\([\s\S]*?\n  \}\n/)?.[0] ?? "";
+  gvrmSrc.match(/^\s{2}updateByBones\s*\(\s*\)\s*\{[\s\S]*?\n  \}/m)?.[0] ?? "";
 
 // -----------------------------------------------------------------------
 // R-1: instance load() の手動フィールドコピー廃止

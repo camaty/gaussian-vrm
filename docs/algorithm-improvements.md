@@ -14,54 +14,65 @@
 
 ### A: アルゴリズム精度改善
 
-| # | 領域 | ファイル:行 | 現状の問題 | 優先度 |
-|---|------|------------|-----------|--------|
-| A-1 | splat→bone fast mode | `preprocess.js:20` | 9/10 のスプラットが前の結果をコピー | 高 |
-| A-2 | direction estimation | `preprocess.js:600-603` | wrist X 座標差分のみでスコア計算 | 高 |
-| A-3 | finalCheck 失敗判定 | `check.js:141` | 3 角度失敗まで許容しすぎ | 中 |
-| A-4 | splat→vertex one-hot | `preprocess.js:86-220` | bone 境界付近のスプラットが最適頂点を見逃す | 中 |
-| A-5 | floor/height detection | `preprocess.js:257` | 固定 1cm ビン幅・magic ratio | 中 |
-| A-6 | VRM tilt/A-pose | `preprocess.js:916-925` | 2 点重心のみで tilt 推定 | 低 |
-| A-7 | runtime precision | `gvrm.js:689`, `preprocess_gl.js:702,720` | GPU 正規化精度・クォータニオン符号バグ | 低 |
+| # | 領域 | ファイル:行 | 現状の問題 | 優先度 | 状態 |
+|---|------|------------|-----------|--------|------|
+| A-1 | splat→bone fast mode | `preprocess.js:20` | 9/10 のスプラットが前の結果をコピー | 高 | 保留 |
+| A-2 | direction estimation | `preprocess.js:600-603` | wrist X 座標差分のみでスコア計算 | 高 | 保留 |
+| A-3 | finalCheck 失敗判定 | `check.js:141` | 3 角度失敗まで許容しすぎ | 中 | 保留 |
+| A-4 | splat→vertex one-hot | `preprocess.js:86-220` | bone 境界付近のスプラットが最適頂点を見逃す | 中 | 保留 |
+| A-5 | floor/height detection | `preprocess.js:257` | 固定 1cm ビン幅・magic ratio | 中 | 保留 |
+| A-6 | VRM tilt/A-pose | `preprocess.js:916-925` | 2 点重心のみで tilt 推定 | 低 | 保留 |
+| A-7 | runtime precision | `gvrm.js:689`, `preprocess_gl.js:702,720` | GPU 正規化精度・クォータニオン符号バグ | 低 | 保留 |
 
 ### R: リファクタリング
 
-| # | 領域 | ファイル:行 | 現状の問題 | 優先度 |
-|---|------|------------|-----------|--------|
-| R-1 | 二重ファクトリーパターン | `gvrm.js:360-379` | instance `load()` が 9 フィールドを手動コピー | 中 |
-| R-2 | 自己代入ノーオプ | `preprocess.js:22` | `bestCi = bestCi` デッドコード | 低 |
-| R-3 | マジックナンバー散在 | `gvrm.js:154-165` | bone index 57/21/19 がハードコード | 中 |
-| R-4 | bone 名リスト重複 | `gvrm.js:200`, `utils.js:162` | `BONE_CONFIG` と同一リストが重複定義 | 中 |
-| R-5 | デッドコード | `gvrm.js` 各所 | `updateByVertices`・`sortSplatsByVertices`・旧互換シム | 低 |
-| R-6 | 400 行巨大関数 | `preprocess.js:221-575` | `cleanSplats()` に 5 つの内部関数がネスト | 中 |
-| R-7 | O(n²) 配列結合 | `gvrm.js:435` | `concat` を毎ループ呼び出し | 低 |
+| # | 領域 | ファイル:行 | 現状の問題 | 優先度 | 状態 |
+|---|------|------------|-----------|--------|------|
+| R-1 | 二重ファクトリーパターン | `gvrm.js:360-379` | instance `load()` が 9 フィールドを手動コピー | 中 | ✅ |
+| R-2 | 自己代入ノーオプ | `preprocess.js:22` | `bestCi = bestCi` デッドコード | 低 | ✅ |
+| R-3 | マジックナンバー散在 | `gvrm.js:154-165` | bone index 57/21/19 がハードコード | 中 | ✅ |
+| R-4 | bone 名リスト重複 | `gvrm.js:200`, `utils.js:162` | `BONE_CONFIG` と同一リストが重複定義 | 中 | ✅ |
+| R-5 | デッドコード | `gvrm.js` 各所 | `updateByVertices`・`sortSplatsByVertices`・旧互換シム | 低 | ✅ |
+| R-6 | 400 行巨大関数 | `preprocess.js:221-575` | `cleanSplats()` に 5 つの内部関数がネスト | 中 | 保留 |
+| R-7 | O(n²) 配列結合 | `gvrm.js:435` | `concat` を毎ループ呼び出し | 低 | ✅ |
+| R-8 | `children[2]` ハードコード不整合 | `gvrm.js:329` | `skinnedMeshIndex` を使わず index を直書き（潜在バグ） | 高 | 保留 |
+| R-9 | `noSortBoneList` 重複 | `gvrm.js:325-327` | `BONE_CONFIG` と同一集合を毎フレーム再生成 | 中 | ✅ |
+| R-10 | PLY ヘッダー関数のファイル間重複 | `preprocess.js:534`, `ply.js:213` | 同一ロジックが別名で 2 箇所 | 中 | 保留 |
+| R-11 | 重心関数 2 つの統合 | `preprocess.js:376-437` | `calculateCentroidFeet/Head` がほぼ完全重複 | 中 | 保留 |
+| R-12 | A-pose 角度ブロック重複 + マジック index | `preprocess.js:963-1092` | 同パターン 6 ブロック + `boneOperations[2..5]` 暗黙順序依存 | 中 | 保留 |
+| R-13 | `assignSplatsToPoints` 未プール + 探索重複 | `preprocess.js:122-145` | P-2 が片側のみ・最近傍カプセル探索が重複 | 中 | 保留 |
+| R-14 | テクスチャ定数 `4096/1024` 散在 | `gvrm.js:616-624` 他 | JS/シェーダーにハードコード分散・UV 式重複 | 中 | 保留 |
+| R-15 | シェーダー死コード | `gvrm.js:649-692` | `splatCenter` 候補・`for debug`・`via mat` のコメント実装 | 低 | ✅ |
+| R-16 | gs.js Promise 誤用（例外握り潰し） | `gs.js:20-51` | 余分な 2 引数（死コード）+ async executor で reject されない | 中 | ✅ |
+| R-17 | keydown リスナー 3 分割 | `main.js:472,503,519` | 同一イベントに 3 ハンドラ分散 | 低 | 保留 |
+| R-18 | `addChannels` 難読命名 | `utils.js:137-145` | 関数名・引数 `N` が意図を表さず三項ネストで難読 | 低 | 保留 |
 
 ### P: 性能改善
 
-| # | 領域 | ファイル:行 | 現状の問題 | 優先度 |
-|---|------|------------|-----------|--------|
-| P-1 | GPU テクスチャ過剰確保 | `gvrm.js:479-487` | 64MB × 6 テクスチャ固定確保 (384MB) | 最高 |
-| P-2 | 三重ループ内オブジェクト生成 | `preprocess.js:40-60` | 最大 7 億回の `new THREE.Vector3()` | 高 |
-| P-3 | 骨変換の二重計算 | `preprocess.js:102, 207` | `applyBoneTransform` を 2 パスで重複実行 | 高 |
-| P-4 | フレーム毎 `clone().invert()` | `gvrm.js:336` | 毎フレーム × 全ボーン分のアロケート | 高 |
-| P-5 | DataView ループ | `ply.js:130` | typed array view で代替可能 | 中 |
-| P-6 | 孤立セル検出 O(n²) | `preprocess.js:468` | 全グリッド走査 → BFS で O(n) 化 | 中 |
-| P-7 | Blob URL 未解放 | `gvrm.js:112-119` | ロード後に `revokeObjectURL` なし | 低 |
+| # | 領域 | ファイル:行 | 現状の問題 | 優先度 | 状態 |
+|---|------|------------|-----------|--------|------|
+| P-1 | GPU テクスチャ過剰確保 | `gvrm.js:479-487` | 64MB × 6 テクスチャ固定確保 (384MB) | 最高 | 保留 |
+| P-2 | 三重ループ内オブジェクト生成 | `preprocess.js:40-60` | 最大 7 億回の `new THREE.Vector3()` | 高 | ✅ |
+| P-3 | 骨変換の二重計算 | `preprocess.js:102, 207` | `applyBoneTransform` を 2 パスで重複実行 | 高 | ✅ |
+| P-4 | フレーム毎 `clone().invert()` | `gvrm.js:336` | 毎フレーム × 全ボーン分のアロケート | 高 | ✅ |
+| P-5 | DataView ループ | `ply.js:130` | typed array view で代替可能 | 中 | ✅ |
+| P-6 | 孤立セル検出 O(n²) | `preprocess.js:468` | 全グリッド走査 → BFS で O(n) 化 | 中 | 保留 |
+| P-7 | Blob URL 未解放 | `gvrm.js:112-119` | ロード後に `revokeObjectURL` なし | 低 | ✅ |
 
 ### Q: 人物表現品質
 
-| # | 領域 | ファイル:行 | 現状の問題 | 優先度 |
-|---|------|------------|-----------|--------|
-| Q-1 | 単一 bone 割当 | `preprocess.js:14-84` | 骨境界で裂け・段差が出る | 最高 |
-| Q-2 | 最近傍頂点 bind | `preprocess.js:86-220` | 表面追従が粗く頂点単位でガタつく | 最高 |
-| Q-3 | 距離のみの割当 | `preprocess.js:40-60` | 法線方向を無視し腕→胴体の誤割当発生 | 高 |
-| Q-4 | bone index ベース cleanup | `gvrm.js:154-166` | VRM 依存の index で品質が不安定 | 高 |
-| Q-5 | 単純な背景除去 | `preprocess.js:221-575` | 髪・スカート・袖・足先が欠ける | 高 |
-| Q-6 | 手首 L-R 差分のみの正面推定 | `preprocess.js:600-647` | 手が隠れると正面が大きくずれる | 中 |
-| Q-7 | pass/fail 判定のみの finalCheck | `check.js:10-152` | 誤差量を補正に使えていない | 中 |
-| Q-8 | covariance 回転の hardcode | `gvrm.js:689` | `-tempQuat.y` は検証なしの暫定対処 | 中 |
-| Q-9 | 全身共通の割当ロジック | `preprocess.js` 全体 | 顔・手・足が専用処理を持たない | 中 |
-| Q-10 | 固定 preprocessing パラメータ | `preprocess.js` 各所 | スキャン品質によって最適値が変わる | 低 |
+| # | 領域 | ファイル:行 | 現状の問題 | 優先度 | 状態 |
+|---|------|------------|-----------|--------|------|
+| Q-1 | 単一 bone 割当 | `preprocess.js:14-84` | 骨境界で裂け・段差が出る | 最高 | 保留 |
+| Q-2 | 最近傍頂点 bind | `preprocess.js:86-220` | 表面追従が粗く頂点単位でガタつく | 最高 | 保留 |
+| Q-3 | 距離のみの割当 | `preprocess.js:40-60` | 法線方向を無視し腕→胴体の誤割当発生 | 高 | 保留 |
+| Q-4 | bone index ベース cleanup | `gvrm.js:154-166` | VRM 依存の index で品質が不安定 | 高 | 保留 |
+| Q-5 | 単純な背景除去 | `preprocess.js:221-575` | 髪・スカート・袖・足先が欠ける | 高 | 保留 |
+| Q-6 | 手首 L-R 差分のみの正面推定 | `preprocess.js:600-647` | 手が隠れると正面が大きくずれる | 中 | 保留 |
+| Q-7 | pass/fail 判定のみの finalCheck | `check.js:10-152` | 誤差量を補正に使えていない | 中 | 保留 |
+| Q-8 | covariance 回転の hardcode | `gvrm.js:689` | `-tempQuat.y` は検証なしの暫定対処 | 中 | 保留 |
+| Q-9 | 全身共通の割当ロジック | `preprocess.js` 全体 | 顔・手・足が専用処理を持たない | 中 | 保留 |
+| Q-10 | 固定 preprocessing パラメータ | `preprocess.js` 各所 | スキャン品質によって最適値が変わる | 低 | 保留 |
 
 ---
 
@@ -931,6 +942,178 @@ const params = PREPROCESSING_PROFILES[profile];
 ```
 
 `data.json` に診断結果と使用プロファイルを保存してデバッグに活用する。
+
+---
+
+## R: 追加リファクタリング候補（R-8〜R-18 詳細）
+
+> ARCHITECTURE.md / algorithm-overview.md とソースを照合して新たに特定した候補。
+> R-1〜R-7 は実装済み（R-6 を除く）。以下は **動作不変** を原則とするが、
+> R-8 / R-16 は機能的挙動に影響しうるためブラウザ検証を必須とする。
+
+### R-8: `updateByBones()` の `children[2]` ハードコード不整合（優先度: 高）
+
+**対象**: `gvrm-format/gvrm.js:329`
+
+```js
+const skeleton = this.character.currentVrm.scene.children[2].skeleton;
+```
+
+`initVRM()` / `gsCustomizeMaterial()` / `utils.js` は一貫して `character.skinnedMeshIndex`（通常 1、メッシュ数次第で 2）でスキンドメッシュを取得しているのに、`updateByBones()` だけ index を直書きしている。AGENTS.md が警告する「`skinnedMeshIndex` はモデル依存」制約に反する潜在バグ。
+
+**提案**: `scene.children[this.character.skinnedMeshIndex].skeleton` に統一。
+
+**リスク**: index 2 のモデルでは不変、index 1 モデルでは挙動が変わる（＝修正）。**アニメーション追従のブラウザ検証必須**。
+
+### R-9: `noSortBoneList` の重複定義（優先度: 中）
+
+**対象**: `gvrm-format/gvrm.js:325-327`
+
+`BONE_CONFIG` の `torso.names` + `headTop.names` + `head.names` と同一集合を、`updateByBones()` 内でローカル配列として毎フレーム再生成している。
+
+**提案**: `BONE_CONFIG` から合成した定数 `NO_SORT_BONE_NAMES` をモジュールスコープに定義。
+
+**リスク**: 動作不変。
+
+### R-10: PLY ヘッダー書き換え関数のファイル間重複（優先度: 中）
+
+**対象**: `apps/preprocess/preprocess.js:534` と `gvrm-format/ply.js:213`
+
+`createNewHeader()` と `createModifiedHeader()` は名前違いで論理的に同一（`element vertex` 行のみ置換）。
+
+**提案**: `PLYParser.rewriteVertexCount(header, count)` に集約し両所から呼ぶ。
+
+**リスク**: 動作不変。前処理出力 PLY の同一性を確認。
+
+### R-11: 重心計算関数の統合（優先度: 中）
+
+**対象**: `apps/preprocess/preprocess.js:376-437`
+
+`calculateCentroidFeet()` と `calculateCentroidHead()` は ymin/ymax 比率とデバッグ円の差だけで、重心計算ロジックは完全に同一。
+
+**提案**: `calculateCentroid(vertices, heights, centroid, distXZ, ratioMin, ratioMax, ...)` に統合。R-6（cleanSplats 分割）とは独立。
+
+**リスク**: 動作不変。前処理出力の同一性を確認。
+
+### R-12: A-pose 角度計算ブロックの重複 + マジックインデックス（優先度: 中）
+
+**対象**: `apps/preprocess/preprocess.js:963-1092`
+
+```js
+const dx = point15.x - point11.x;
+const dy = point15.y - point11.y;
+boneOperations[2]["rotation"]["z"] = -(Math.atan2(dy, dx) * 180 / Math.PI);
+```
+
+`2 点 → atan2 → degrees → boneOperations[N]` が 6 ブロックコピペ。`boneOperations[2..5]` は `default.json` の配列順序に暗黙依存するマジックインデックス。
+
+**提案**: `setBoneRotation(boneOps, 'leftUpperArm', 'z', val)`（boneName 検索）と `keypointAngleDeg(pA, pB)` を導入。
+
+**リスク**: boneOperations 値が不変であることをブラウザで検証（A-pose 整合）。
+
+### R-13: `assignSplatsToPoints()` 第 1 パスの未プール + 最近傍探索重複（優先度: 中）
+
+**対象**: `apps/preprocess/preprocess.js:122-145`
+
+P-2 は `assignSplatsToBones()` のみプール化したが、`assignSplatsToPoints()` の「頂点→最近傍カプセル」探索は未プールのまま。さらにこのロジックは `assignSplatsToBones()` と重複（DRY 違反）。
+
+**提案**: `findClosestCapsule(point, capsules, capsuleBoneIndex, pool)` を共有ヘルパーとして抽出し両関数から呼ぶ。プール化で GC も削減。
+
+**リスク**: 割当結果は数値的に不変であるべき。前処理出力の一致を確認。
+
+### R-14: テクスチャパッキング定数 `4096/1024` の散在（優先度: 中）
+
+**対象**: `gvrm-format/gvrm.js:616-624` 他、`apps/preprocess/preprocess_gl.js:68` 他
+
+```glsl
+float d2 = float(splatIndex) / 4096.0;
+samplerUV2.y = float(floor(d2)) / 1024.0;
+samplerUV2.x = fract(d2);
+```
+
+`4096`/`1024` のリテラルが JS とシェーダーに分散し、index→UV 変換式も複数回コピペ。P-1（動的サイズ化）の前提として一元化が必要。
+
+**提案**: `TEXTURE_WIDTH`/`TEXTURE_HEIGHT` を JS 側で export しシェーダーに `#define` 注入。UV 変換を GLSL 関数 `vec2 indexToUV(float i)` に切り出す。
+
+**リスク**: 動作不変。ビルド後にレンダリング目視確認。
+
+### R-15: シェーダー内のコメントアウト死コード（優先度: 低）
+
+**対象**: `gvrm-format/gvrm.js:649-692`
+
+複数の `splatCenter` 候補、`for debug` の `Vrk` スケール、`via mat` 代替実装（7 行）がコメントアウトで残存し、シェーダー文字列を肥大化させている。
+
+**提案**: 採用済み行のみ残し実験用死コードを削除。
+
+**リスク**: 動作不変。ビルド後の目視確認。
+
+### R-16: `GaussianSplatting.loadGS()` の Promise 誤用（優先度: 中）
+
+**対象**: `gvrm-format/gs.js:20-51`
+
+```js
+this.loadingPromise = new Promise(async (resolve, reject) => {
+  ...
+  await viewer.addSplatScenes(sceneOptions, false);  // throw しても reject されない
+  ...
+  resolve(this);
+}, undefined, function (error) { console.error(error); });  // 第2,3引数は無視される死コード
+```
+
+1. `Promise` コンストラクタは executor 1 引数のみ。余分な 2 引数は完全に無視される死コード。
+2. async executor 内で `await` が throw しても `reject` されず例外が握り潰される（unhandled rejection）。
+
+**提案**: 余分な引数を削除し `try { ... resolve(this) } catch (e) { reject(e) }` で包む。
+
+**リスク**: エラー伝播が改善方向に変化。正常系は不変。ロード失敗時の挙動をブラウザ検証。
+
+### R-17: `main.js` の `keydown` リスナー 3 分割（優先度: 低）
+
+**対象**: `main.js:472, 503, 519`
+
+`keydown` ハンドラが 3 つに分散（Space/V/C/X/Z、G/A、P）。
+
+**提案**: 1 つの `async` ハンドラに統合、または key→action ディスパッチテーブル化。
+
+**リスク**: 動作不変。キー操作の手動確認。
+
+### R-18: `addChannels()` の難読な命名とロジック（優先度: 低）
+
+**対象**: `gvrm-format/utils.js:137-145`
+
+```js
+export function addChannels(fromArray, toArray, count, N = 1) {
+  toArray[i * 4 + 0] = N > 3 ? 1.0 : fromArray[i * (4 - N) + 0];
+  ...
+```
+
+関数名 `addChannels` と引数 `N`（実際は「パディングするチャンネル数」）が意図を表さず、三項ネストが役割（RGB→RGBA パディング）を隠蔽。
+
+**提案**: `padToRGBA(src, dst, count, srcChannels)` にリネームし `srcChannels = 4 - N` を引数化。
+
+**リスク**: 動作不変（純粋リファクタ）。
+
+### 補足（コード変更不要）
+
+- **`preprocess_gl.js` の `console.log` 残存**（`L150` 他多数）: R-5 の削除方針を GPU パスにも拡張する価値あり。
+- **ドキュメント不整合**: CLAUDE.md は「`?gpu` で GPU 有効化」と記載するが、実装は `useGPU = !params.has('cpu')`（`main.js:27`）＝デフォルト GPU・`?cpu` で無効化。ドキュメント側の修正候補。
+
+### 実装推奨バッチ（動作不変・ブラウザ検証不要）
+
+TDD（ソースパターンテスト）で安全に実装できる順:
+
+1. ~~**R-9**（noSortBoneList 共有定数化）~~ ✅ 実装済み（UT-15、15 テスト）
+2. **R-10**（PLY ヘッダー関数の集約）
+3. **R-18**（addChannels リネーム）
+4. ~~**R-15**（シェーダー死コード削除）~~ ✅ 実装済み（UT-15）
+5. **R-17**（keydown 統合）
+
+検証が必要なバッチ（前処理出力 / レンダリング / アニメーションに影響）:
+
+- **R-8**（children[2] 修正・アニメーション検証）
+- **R-11 / R-12 / R-13**（前処理出力の同一性確認）
+- **R-14**（レンダリング目視）
+- ~~**R-16**（ロード失敗時の挙動確認）~~ ✅ 実装済み（UT-15・IIFE async + try/catch）
 
 ---
 
