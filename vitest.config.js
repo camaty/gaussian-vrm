@@ -20,6 +20,7 @@ export default defineConfig({
     alias: {
       "@gvrm": path.resolve(__dirname, "./gvrm-format"),
       "@preprocess": path.resolve(__dirname, "./apps/preprocess"),
+      "three": path.resolve(__dirname, "./tests/helpers/three-mock.js"),
     },
   },
 });
