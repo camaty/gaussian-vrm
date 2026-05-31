@@ -108,39 +108,72 @@ export class PLYParser {
     const vertices = [];
     const verticesRawData = new Uint8Array(arrayBuffer.slice(offset));
 
-    for (let i = 0; i < this.vertexCount; i++) {
-      const vertex = {
-        rawData: verticesRawData.slice(i * vertexSize, (i + 1) * vertexSize)
-      };
-      
-      let propertyOffset = 0;
-      for (const prop of this.properties) {
-        const size = this.propertyTypes.get(prop.type);
-        let value;
-        
-        switch (prop.type) {
-          case 'float':
-            value = data.getFloat32(offset + propertyOffset, true);
-            break;
-        }
-        
-        vertex[prop.name] = value;
-        propertyOffset += size;
-      }
-      
-      vertices.push(vertex);
-      offset += vertexSize;
+    // P-5: float-only PLY — use Float32Array view for faster body parsing
+    const allFloat = this.properties.every(p => p.type === 'float');
+    const propCount = this.properties.length;
 
-      if (i % 10000 === 0) {
-        const progress = (i / this.vertexCount) * 100;
-        const loaddisplay = document.getElementById('loaddisplay');
-        if (loaddisplay) {
-          await new Promise(resolve => {
-            requestAnimationFrame(() => {
-              loaddisplay.innerHTML = `${progress.toFixed(1)}% (2/2)`;
-              resolve();
+    if (allFloat) {
+      // Copy body to aligned buffer and view as Float32Array
+      const bodyBuffer = arrayBuffer.slice(offset);
+      const floatBody = new Float32Array(bodyBuffer);
+      for (let i = 0; i < this.vertexCount; i++) {
+        const vertex = {
+          rawData: verticesRawData.slice(i * vertexSize, (i + 1) * vertexSize)
+        };
+        const base = i * propCount;
+        for (let j = 0; j < propCount; j++) {
+          vertex[this.properties[j].name] = floatBody[base + j];
+        }
+        vertices.push(vertex);
+
+        if (i % 10000 === 0) {
+          const progress = (i / this.vertexCount) * 100;
+          const loaddisplay = document.getElementById('loaddisplay');
+          if (loaddisplay) {
+            await new Promise(resolve => {
+              requestAnimationFrame(() => {
+                loaddisplay.innerHTML = `${progress.toFixed(1)}% (2/2)`;
+                resolve();
+              });
             });
-          });
+          }
+        }
+      }
+    } else {
+      for (let i = 0; i < this.vertexCount; i++) {
+        const vertex = {
+          rawData: verticesRawData.slice(i * vertexSize, (i + 1) * vertexSize)
+        };
+
+        let propertyOffset = 0;
+        for (const prop of this.properties) {
+          const size = this.propertyTypes.get(prop.type);
+          let value;
+
+          switch (prop.type) {
+            case 'float':
+              value = data.getFloat32(offset + propertyOffset, true);
+              break;
+          }
+
+          vertex[prop.name] = value;
+          propertyOffset += size;
+        }
+
+        vertices.push(vertex);
+        offset += vertexSize;
+
+        if (i % 10000 === 0) {
+          const progress = (i / this.vertexCount) * 100;
+          const loaddisplay = document.getElementById('loaddisplay');
+          if (loaddisplay) {
+            await new Promise(resolve => {
+              requestAnimationFrame(() => {
+                loaddisplay.innerHTML = `${progress.toFixed(1)}% (2/2)`;
+                resolve();
+              });
+            });
+          }
         }
       }
     }

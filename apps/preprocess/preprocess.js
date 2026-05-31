@@ -16,17 +16,24 @@ async function assignSplatsToBones(gs, capsules, capsuleBoneIndex, fast = false)
   gs.splatBoneIndices = [];
   let bestCi = 0;
 
+  // Pre-allocated working vectors to avoid per-iteration GC pressure (P-2)
+  const _targetPoint = new THREE.Vector3();
+  const _a = new THREE.Vector3();
+  const _b = new THREE.Vector3();
+  const _c = new THREE.Vector3();
+  const _closestPoint = new THREE.Vector3();
+  const _triangle = new THREE.Triangle();
+
   for (let i = 0; i < gs.splatCount; i++) {
     if (fast && i % 10 !== 0) {  // CHANGED
-      bestCi = bestCi;
       gs.splatBoneIndices.push(capsuleBoneIndex[bestCi]);
       gs.colors[i * 4 + 0] = GVRMUtils.colors[bestCi][0];
       gs.colors[i * 4 + 1] = GVRMUtils.colors[bestCi][1];
       gs.colors[i * 4 + 2] = GVRMUtils.colors[bestCi][2];
       continue;
     }
-    let targetPoint = new THREE.Vector3(gs.centers0[i * 3 + 0], gs.centers0[i * 3 + 1], gs.centers0[i * 3 + 2]);
-    targetPoint.applyMatrix4(gs.viewer.splatMesh.scenes[0].matrixWorld);
+    _targetPoint.set(gs.centers0[i * 3 + 0], gs.centers0[i * 3 + 1], gs.centers0[i * 3 + 2]);
+    _targetPoint.applyMatrix4(gs.viewer.splatMesh.scenes[0].matrixWorld);
 
     let minDistance = Infinity;
     bestCi = 0;
@@ -37,23 +44,15 @@ async function assignSplatsToBones(gs, capsules, capsuleBoneIndex, fast = false)
       const position = geometry.getAttribute('position');
       const index = geometry.index;
 
-      const triangle = new THREE.Triangle();
-
       for (let ii = 0; ii < index.count; ii += 3) {
-        let a = new THREE.Vector3().fromBufferAttribute(position, index.getX(ii));
-        let b = new THREE.Vector3().fromBufferAttribute(position, index.getX(ii + 1));
-        let c = new THREE.Vector3().fromBufferAttribute(position, index.getX(ii + 2));
+        _a.fromBufferAttribute(position, index.getX(ii)).applyMatrix4(capsule.matrixWorld);
+        _b.fromBufferAttribute(position, index.getX(ii + 1)).applyMatrix4(capsule.matrixWorld);
+        _c.fromBufferAttribute(position, index.getX(ii + 2)).applyMatrix4(capsule.matrixWorld);
 
-        a.applyMatrix4(capsule.matrixWorld);
-        b.applyMatrix4(capsule.matrixWorld);
-        c.applyMatrix4(capsule.matrixWorld);
+        _triangle.set(_a, _b, _c);
+        _triangle.closestPointToPoint(_targetPoint, _closestPoint);
 
-        triangle.set(a, b, c);
-
-        let closestPoint = new THREE.Vector3();
-        triangle.closestPointToPoint(targetPoint, closestPoint);
-
-        let distance = targetPoint.distanceTo(closestPoint);
+        const distance = _targetPoint.distanceTo(_closestPoint);
 
         if (distance < minDistance) {
           minDistance = distance;

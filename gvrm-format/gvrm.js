@@ -116,18 +116,15 @@ export class GVRM extends THREE.Group {
     const modelScale = extraData.modelScale;
     const boneOperations = extraData.boneOperations;
 
-    if (extraData.splatRelativePoses === undefined) {  // TODO: remove
-      extraData.splatRelativePoses = extraData.relativePoses;
-    }
-
     const character = await GVRM.initVRM(
       vrmUrl, scene, camera, renderer, modelScale, boneOperations);
+    URL.revokeObjectURL(vrmUrl);
 
     // dynamic sort (choose one splat sort)
     const { sceneSplatIndices, boneSceneMap } = GVRM.sortSplatsByBones(extraData);
-    // const { sceneSplatIndices, vertexSceneMap } = GVRM.sortSplatsByVertices(extraData);
     const parser = new PLYParser();
     const sceneUrls  = await parser.splitPLY(plyUrl, sceneSplatIndices);
+    URL.revokeObjectURL(plyUrl);
 
     const gs = await GVRM.initGS(sceneUrls, extraData.gsPosition, extraData.gsQuaternion, scene);
 
@@ -170,16 +167,13 @@ export class GVRM extends THREE.Group {
     gvrm.gs.splatMesh.updateDataTexturesFromBaseData(0, gvrm.gs.splatCount - 1);
 
 
+    const _boneNameSet = new Set(
+      Object.values(GVRMUtils.BONE_CONFIG).flatMap(c => c.names)
+    );
     function _traverseNodes(node, depth = 0) {
       node.children.forEach(function (childNode) {
         if (childNode.isBone) {
-          const types = [
-            "J_Bip_L_Hand", "J_Bip_L_LowerArm", "J_Bip_R_Hand", "J_Bip_R_LowerArm",
-            "J_Bip_L_LowerLeg", "J_Bip_L_Foot", "J_Bip_R_LowerLeg", "J_Bip_R_Foot",
-            "J_Bip_C_Neck", "J_Bip_C_Spine", "J_Bip_C_Chest", "J_Bip_C_UpperChest",
-            "J_Bip_C_HeadTop_End",
-            "J_Bip_C_Head"];
-          if (types.includes(childNode.name)) {
+          if (_boneNameSet.has(childNode.name)) {
             childNode.updateMatrix();
             childNode.matrixWorld0 = childNode.matrixWorld.clone();
           }
@@ -285,7 +279,6 @@ export class GVRM extends THREE.Group {
     this.modelScale = _gvrm.modelScale;
     this.boneOperations = _gvrm.boneOperations;
     this.boneSceneMap = _gvrm.boneSceneMap;
-    this.vertexSceneMap = _gvrm.vertexSceneMap;
     this.fileName = _gvrm.fileName;
     this.vrmWorldPosition0 = _gvrm.vrmWorldPosition0;
     this.vrmWorldQuaternion0 = _gvrm.vrmWorldQuaternion0;
@@ -374,9 +367,6 @@ export class GVRM extends THREE.Group {
     });
   }
 
-  // deprecated
-  // updateByVertices() {}
-
   createDebugAxes(sceneIndex) {
     const axesHelper = new THREE.AxesHelper(0.3);
     axesHelper.visible = false;
@@ -422,16 +412,7 @@ export class GVRM extends THREE.Group {
   }
 
 
-  // deprecated
-  // static sortSplatsByVertices(extraData) {}
-
-
   static updateExtraData(extraData, sceneSplatIndices) {
-
-    let splatIndices = [];
-    for (let i = 0; i < Object.keys(sceneSplatIndices).length; i++) {
-      splatIndices = splatIndices.concat(sceneSplatIndices[i]);
-    }
 
     const splatVertexIndices = [];
     const splatBoneIndices = [];
